@@ -1,0 +1,207 @@
+let particles = []
+let barriers = []
+let creatingBarrier = false
+let barrierStart = []
+
+function setup() {
+  createCanvas(600, 400)
+  barriers.push([[0, 0], [width, 0]])
+  barriers.push([[0, 0], [0, height]])
+  barriers.push([[width, 0], [width, height]])
+  barriers.push([[0, height], [width, height]])
+  // Cria partículas aleatórias
+  for (let i = 0; i < 10; i++) {
+    particles.push(new Particle(random(width), random(height)))
+  }
+}
+
+function draw() {
+  background(255)
+  text("Clique e arraste o mouse para criar barreiras", 10, 10)
+  
+  // Desenha as barreiras
+  for (let b of barriers) {
+    stroke(0)
+    line(b[0][0], b[0][1], b[1][0], b[1][1])
+
+    // Calcula o ponto médio da barreira
+    let midX = (b[0][0] + b[1][0]) / 2
+    let midY = (b[0][1] + b[1][1]) / 2
+    
+    // Vetor da barreira
+    let barrierVec = Sub(b[1], b[0])
+
+    // Vetor normal (perpendicular)
+    let normal = [-barrierVec[1], barrierVec[0]]; // Normal é perpendicular
+
+    // Escala o vetor normal para que a seta tenha um tamanho razoável
+    let normalLength = 20  // Comprimento desejado da seta normal
+    let normalUnit = [normal[0] / Compr(normal), normal[1] / Compr(normal)] // Vetor unitário
+    let normalEnd = [midX + normalUnit[0] * normalLength, midY + normalUnit[1] * normalLength]
+    let normalEnd2 = [midX - normalUnit[0] * normalLength, midY - normalUnit[1] * normalLength]
+    
+    // Desenha a seta do vetor normal
+    stroke(133, 0, 0)
+    seta(midX, midY, normalEnd[0], normalEnd[1])
+    seta(midX, midY, normalEnd2[0], normalEnd2[1])
+  }
+  // Atualiza e desenha partículas
+  for (let p of particles) {
+    p.update()
+    p.checkCollisions(barriers)
+    p.display()
+  }
+
+  // Desenha a barreira enquanto o mouse é arrastado
+  if (creatingBarrier) {
+    stroke(0, 0, 255)
+    line(barrierStart[0], barrierStart[1], mouseX, mouseY)
+  }
+}
+
+function mousePressed() {
+  // Inicia criação de barreira
+  creatingBarrier = true
+  barrierStart = [mouseX, mouseY]
+}
+
+function mouseReleased() {
+  // Finaliza criação de barreira
+  creatingBarrier = false
+  barriers.push([barrierStart, [mouseX, mouseY]])
+}
+
+class Particle {
+  constructor(x, y) {
+    this.pos = [x, y]
+    this.vel = [random(-2, 2), random(-2, 2)]
+    this.r = 2
+  }
+
+  update() {
+    let nextPos = Som(this.pos, this.vel)
+    
+    // Verifica colisão com os limites da tela
+    if (nextPos[0] < this.r || nextPos[0] > width - this.r) {
+      this.vel[0] *= -1
+    }
+    if (nextPos[1] < this.r || nextPos[1] > height - this.r) {
+      this.vel[1] *= -1
+    }
+
+    // Atualiza posição
+    this.pos = Som(this.pos, this.vel)
+  }
+
+  checkCollisions(barriers) {
+  for (let b of barriers) {
+    let intersect = Intersection(this.pos, Som(this.pos, this.vel), b[0], b[1])
+    if (intersect) {
+      // Calcula o vetor normal da barreira
+      let barrierVec = Sub(b[1], b[0])
+      let normal = [-barrierVec[1], barrierVec[0]]  // Normal perpendicular
+      let projVel = Proj(this.vel, normal)
+      this.vel = Sub(this.vel, Som(projVel, projVel)) // Reflete a velocidade
+      break
+    }
+  }
+}
+
+  display() {
+    fill(0, 150, 0)
+    noStroke()
+    ellipse(this.pos[0], this.pos[1], this.r * 2)
+  
+    // Ajusta o comprimento da seta
+    let arrowLength = 12 // Comprimento da seta
+    let velMagnitude = Compr(this.vel) // Magnitude da velocidade
+    if (velMagnitude > 0) {
+      // Normaliza o vetor de velocidade
+      let velUnit = [this.vel[0] / velMagnitude, this.vel[1] / velMagnitude]
+      
+      // Calcula o ponto final da seta
+      let velEnd = [this.pos[0] + velUnit[0] * arrowLength, this.pos[1] + velUnit[1] * arrowLength]
+      
+      // Desenha a seta na direção do movimento
+      stroke(255, 0, 0)
+      fill(255, 0, 0) // Cor da seta, pode ser ajustada conforme necessário
+      seta(this.pos[0], this.pos[1], velEnd[0], velEnd[1])
+    }
+  }
+}
+
+// Função de interseção entre segmentos
+function Intersection(a, b, c, d){
+  //vetor AB
+  let ab = Sub(b, a);
+  
+  //A até C e A até D
+  let ac = Sub(c, a);
+  let ad = Sub(d, a);
+  
+  //vetor CD
+  let cd = Sub(d, c);
+  
+  //C até A e C até B
+  let ca = Sub(a, c);
+  let cb = Sub(b, c);
+  
+  //produto vetorial de AB com AC e AB com AD
+  let cross1 = Vet(ab, ac);
+  let cross2 = Vet(ab, ad);
+  
+  //produto vetorial de CD com CA e CD com CB
+  let cross3 = Vet(cd, ca);
+  let cross4 = Vet(cd, cb);
+  
+  return cross1 * cross2 < 0 && cross3 * cross4 < 0;
+}
+
+// Funções vetoriais fornecidas
+function Som(v1, v2) {
+  return [v1[0] + v2[0], v1[1] + v2[1]];
+}
+
+function Sub(v1, v2) {
+  return [v1[0] - v2[0], v1[1] - v2[1]];
+}
+
+function Inv(v) {
+  return [-v[0], -v[1]];
+}
+
+function Compr(v) {
+  return sqrt(v[0] * v[0] + v[1] * v[1]);
+}
+
+function Esc(v1, v2) {
+  return v1[0] * v2[0] + v1[1] * v2[1];
+}
+
+function Vet(v1, v2) {
+  return v1[0] * v2[1] - v1[1] * v2[0];
+}
+
+function Proj(v1, v2) {
+  let V1V2 = Esc(v1, v2);
+  let V2V2 = Compr(v2) * Compr(v2);
+  let V1V2eV2V2 = V1V2 / V2V2;
+  return [v2[0] * V1V2eV2V2, v2[1] * V1V2eV2V2];
+}
+
+function seta(x1,y1,x2,y2)
+{
+  // o segmento de reta
+  line(x1,y1,x2,y2)
+  var dx = x2-x1, dy = y2-y1
+  var le = sqrt(dx*dx + dy*dy) // comprimento do vetor
+  // o vetor v é unitário paralelo ao segmento, com mesmo sentido
+  var vx = dx/le, vy = dy/le
+  // o vetor u é unitário e perpendicular ao segmento
+  var ux = -vy
+  var uy = vx
+  // a cabeça triangular
+  triangle(x2,y2,
+           x2-5*vx+2*ux, y2-5*vy+2*uy,
+           x2-5*vx-2*ux, y2-5*vy-2*uy)
+}
